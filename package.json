@@ -1,7 +1,7 @@
 {
-    "name": "server-side-rendering",
+    "name": "race",
     "version": "0.0.1",
-    "description": "The missing guide to server-side rendering",
+    "description": "",
     "main": "server.js",
     "scripts": {
         "dev": "babel-node server/server.js",
@@ -11,6 +11,7 @@
     "author": "Dmitri Pisarev",
     "license": "ISC",
     "dependencies": {
+        "brace": "^0.9.1",
         "bulma": "^0.2.3",
         "express": "^4.13.4",
         "isomorphic-fetch": "^2.2.1",
