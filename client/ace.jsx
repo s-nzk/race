@@ -82,24 +82,6 @@ export default class Ace extends React.Component {
             previous: ''
         };
 
-        // //hashからテキストを復元
-        // let hash = location.hash;
-        // if(hash.length >= 2){
-        //     try{
-        //         let saveData = JSON.parse(Base64.decode(hash.slice(1)));
-        //         // console.log(saveData);
-        //         this.state = {
-        //             mode: saveData.mode,
-        //             value: saveData.value,
-        //             readOnly: true,
-        //             previous: saveData.value
-        //         };
-        //     }catch(error){
-        //         console.error(error);
-        //         //ignore
-        //     }            
-        // }
-
 
         //socket.io接続(location.pathnameがroomID)
         this.socket = io('/', {query: `path=${location.pathname}`});
@@ -213,9 +195,6 @@ export default class Ace extends React.Component {
                                 {this.renderLanguage()}
                             </select>
                         </span>
-                    </p>
-                    <p className="control">
-                        <a className="button is-outlined" onClick={ this.saveData.bind(this) } >Save</a>
                     </p>
                 </div>
             </div>
