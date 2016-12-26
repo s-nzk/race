@@ -9,7 +9,7 @@ import 'brace/theme/monokai';
 import 'brace/ext/language_tools'
 
 import styles from 'bulma';
-
+import DiffMatchPatch from 'diff-match-patch';
 
 import 'brace/mode/javascript';
 import 'brace/mode/jsx';
@@ -34,6 +34,8 @@ import 'brace/mode/sql';
 import 'brace/mode/html';
 import 'brace/mode/xml';
 
+
+const dmp = new DiffMatchPatch();
 
 const modeList = {
     javascript: 'javascript',
@@ -69,38 +71,62 @@ const Base64 = {
 export default class Ace extends React.Component {
     constructor(props) {
         super(props);
+        
+        this.just_received = false;
 
         
         this.state = {
             mode: 'javascript',
-            value: 'var x = 100;'
+            value: '',
+            readOnly: true,
+            previous: ''
         };
 
-        //hashからテキストを復元
-        let hash = location.hash;
-        if(hash.length >= 2){
-            try{
-                let saveData = JSON.parse(Base64.decode(hash.slice(1)));
-                console.log(saveData);
-                this.state = {
-                    mode: saveData.mode,
-                    value: saveData.value
-                };
-            }catch(error){
-                console.error(error);
-                //ignore
-            }            
-           
-
-        }
+        // //hashからテキストを復元
+        // let hash = location.hash;
+        // if(hash.length >= 2){
+        //     try{
+        //         let saveData = JSON.parse(Base64.decode(hash.slice(1)));
+        //         // console.log(saveData);
+        //         this.state = {
+        //             mode: saveData.mode,
+        //             value: saveData.value,
+        //             readOnly: true,
+        //             previous: saveData.value
+        //         };
+        //     }catch(error){
+        //         console.error(error);
+        //         //ignore
+        //     }            
+        // }
 
 
         //socket.io接続(location.pathnameがroomID)
         this.socket = io('/', {query: `path=${location.pathname}`});
+        
+        
+        this.socket.on('init', (value) => {
+           this.setState({
+               value: value,
+               previous: value,
+               readOnly: false
+           }); 
+        });
 
         //editor changeのブロードキャスト受信
-        this.socket.on('editor onchange', (newValue) => {
-            this.setState({value: newValue});
+        this.socket.on('editor onchange', (patch) => {
+            // console.log('recieve', patch);
+            this.just_received = true;
+            let newValue = dmp.patch_apply(patch, this.state.value)[0];
+            this.setState({
+                value: newValue,
+                previous: newValue
+            });
+            this.just_received = false;
+        });
+        //mode changeのブロードキャスト受信
+        this.socket.on('mode onchange', (mode) => {
+            this.setState({mode: mode});
         });
     }
 
@@ -118,15 +144,30 @@ export default class Ace extends React.Component {
 
     //モードプルダウン変更
     modeChange(event) {
-        this.setState({mode: modeList[event.target.value]});
+        let mode = event.target.value;
+        this.setState({mode: mode});
+        this.socket.emit('mode onchange' ,mode);
     }
 
     //エディター書き込み時
     onChange(newValue) {
-        this.socket.emit('editor onchange' ,newValue);
-        this.setState({value: newValue});
-
-        // console.log('change', newValue);
+        if (this.just_received) {
+            this.setState({
+               value: newValue 
+            });
+            return;
+        }
+        
+        // console.log(this.state.previous, newValue);
+        let patch = dmp.patch_make(this.state.previous, newValue);
+        this.socket.emit('editor onchange' ,{
+            value: newValue,
+            patch: patch
+        });
+        this.setState({
+            value: newValue,
+            previous: newValue
+            });
     }
 
     //保存ボタン
@@ -135,7 +176,7 @@ export default class Ace extends React.Component {
             mode: this.state.mode,
             value: this.state.value
         };
-        console.log(saveData);
+        // console.log(saveData);
         let base64 = Base64.encode(JSON.stringify(saveData));
         location.hash = base64; 
     }
@@ -156,6 +197,7 @@ export default class Ace extends React.Component {
                     value = { this.state.value }
                     height = "95vh"
                     width = "100%"
+                    readOnly = {this.state.readOnly}
                     enableBasicAutocompletion={true}
                     enableLiveAutocompletion={true}
                     editorProps = {

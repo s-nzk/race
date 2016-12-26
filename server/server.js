@@ -24,17 +24,36 @@ app.get('/', (req, res) => {
     let hash = crypto.randomBytes(5).toString('hex');
     res.redirect(`/${hash}`);
 });
-server.listen(3000);
-console.log('=== Go to http://localhost:3000 ===');
+const port = process.env.PORT || 3000;
+server.listen(port);
+console.log(`=== Go to http://localhost:${port} ===`);
 console.log(__dirname);
 
+let roomData = {};
 
 io.on('connection', (socket) => {
     const path = socket.handshake.query.path;
+    
+    if(!roomData[path]){
+        roomData[path] = '';
+        setTimeout(() => delete roomData[path], 24 * 60 * 60 * 3 * 1000/*3 days*/);
+    }
+    
+    console.log(`connect:${path}`);
+
 
     socket.join(path);
+    
+    socket.emit('init', roomData[path]);
 
-    socket.on('editor onchange', (newData) => {
-        socket.broadcast.to(path).emit('editor onchange', newData);
+    socket.on('editor onchange', (data) => {
+        // console.log('send patch');
+        roomData[path] = data.value;
+        socket.broadcast.to(path).emit('editor onchange', data.patch);
+    });
+    
+    socket.on('mode onchange', (mode) => {
+        // console.log('send mode');
+        socket.broadcast.to(path).emit('mode onchange', mode);
     });
 });
