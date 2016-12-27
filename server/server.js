@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import http from 'http';
 import crypto from 'crypto';
+import DiffMatchPatch from 'diff-match-patch';
+const dmp = new DiffMatchPatch();
 
 import socketio from 'socket.io';
 
@@ -35,7 +37,9 @@ io.on('connection', (socket) => {
     const path = socket.handshake.query.path;
     
     if(!roomData[path]){
-        roomData[path] = '';
+        roomData[path] = {};
+        roomData[path].value = '';
+        roomData[path].mode = 'javascript';
         setTimeout(() => delete roomData[path], 24 * 60 * 60 * 3 * 1000/*3 days*/);
     }
     
@@ -48,12 +52,13 @@ io.on('connection', (socket) => {
 
     socket.on('editor onchange', (data) => {
         // console.log('send patch');
-        roomData[path] = data.value;
-        socket.broadcast.to(path).emit('editor onchange', data.patch);
+        roomData[path].value = dmp.patch_apply(data.patch, roomData[path].value)[0];
+        socket.broadcast.to(path).emit('editor onchange', data);
     });
     
     socket.on('mode onchange', (mode) => {
         // console.log('send mode');
+        roomData[path].mode = mode;
         socket.broadcast.to(path).emit('mode onchange', mode);
     });
 });

@@ -87,24 +87,85 @@ export default class Ace extends React.Component {
         this.socket = io('/', {query: `path=${location.pathname}`});
         
         
-        this.socket.on('init', (value) => {
+        this.socket.on('init', (data) => {
+            console.log(data);
            this.setState({
-               value: value,
-               previous: value,
-               readOnly: false
-           }); 
+               value: data.value,
+               previous: data.value,
+               readOnly: false,
+               mode: data.mode
+           });
         });
 
         //editor changeのブロードキャスト受信
-        this.socket.on('editor onchange', (patch) => {
-            // console.log('recieve', patch);
+        this.socket.on('editor onchange', (data) => {
+            let patch = data.patch;
+            console.log('recieve', patch);
             this.just_received = true;
-            let newValue = dmp.patch_apply(patch, this.state.value)[0];
+            
+            let cursor = this.editor.getCursorPosition();
+            let currentValue = this.state.value;
+            let newValue = dmp.patch_apply(patch, currentValue)[0];
+            
+            console.log(cursor);
+            let column = cursor.column;
+            let row = cursor.row;
+            let cs = currentValue.split('\n');
+            let ns = newValue.split('\n');
+            let pt = patch[0].diffs.filter((v) => (v[0] === 1 || v[0] === -1));
+            
+            
+            
+            // console.log(currentValue);
+            // console.log(newValue);
+            console.log(patch);
+            //
             this.setState({
                 value: newValue,
                 previous: newValue
             });
+            
+            if(ns.length >= 2){
+                //変更後が2行以上
+                if(ns.length !== cs.length){
+                    console.log(cs,':', ns, ':', patch[0]);
+                    //改行された時
+                    if(true){
+                       //カレントの行より上で改行された時 
+                    }
+                }
+            }
+            
+            // if(ns.length >= 2){
+            //     if(pt && pt[0].length === 2){
+            //         if(ns.length !== cs.length && cs[row] !== ns[row]){
+            //             console.log(cs[row],':', ns[row]);
+            //             if(column!== 0 && ns[row].length >= column && (cs[row].substring(0, column) === ns[row].substring(0, column))){
+                            
+            //             } else {
+            //                 let y = pt[0][1].split('\n').length -1;
+            //                 let x = 0;
+            //                 if(column!== 0 && pt[0][1] === '\n'){
+            //                     console.log(ns);
+            //                     if(ns[row]){
+            //                         x = ns[row].length;
+            //                     }
+            //                 }
+            //                 console.log("x=", x, "y=", y);
+            //                 this.editor.navigateTo(row + y * pt[0][0], column -x);
+            //                 console.log(this.editor.getCursorPosition());
+            //             }
+            //         } else {
+            //             if(column!== 0 && ns[row].length >= column && (cs[row].substring(0, column) === ns[row].substring(0, column))){
+            //             } else {
+            //                 let x = ns[row].length - cs[row].length;
+            //                 this.editor.navigateTo(row, column + x);
+            //             }
+            //         }
+            //     }
+            // }
             this.just_received = false;
+            
         });
         //mode changeのブロードキャスト受信
         this.socket.on('mode onchange', (mode) => {
@@ -115,13 +176,13 @@ export default class Ace extends React.Component {
     //エディター初期設定
     componentDidMount(){
         this.editor = ace.edit('editor');
-        this.editor.commands.addCommand({
-            name: 'save',
-            bindKey: {win: "Ctrl-S", "mac": "Cmd-S"},
-            exec: () => {
-                this.saveData();
-            }
-        });
+        // this.editor.commands.addCommand({
+        //     name: 'save',
+        //     bindKey: {win: "Ctrl-S", "mac": "Cmd-S"},
+        //     exec: () => {
+        //         this.saveData();
+        //     }
+        // });
     }
 
     //モードプルダウン変更
@@ -140,10 +201,9 @@ export default class Ace extends React.Component {
             return;
         }
         
-        // console.log(this.state.previous, newValue);
+        console.log(this.state.previous, newValue);
         let patch = dmp.patch_make(this.state.previous, newValue);
         this.socket.emit('editor onchange' ,{
-            value: newValue,
             patch: patch
         });
         this.setState({
@@ -180,8 +240,6 @@ export default class Ace extends React.Component {
                     height = "95vh"
                     width = "100%"
                     readOnly = {this.state.readOnly}
-                    enableBasicAutocompletion={true}
-                    enableLiveAutocompletion={true}
                     editorProps = {
                         { $blockScrolling: Infinity }
                     }
